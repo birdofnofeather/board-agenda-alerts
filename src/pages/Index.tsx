@@ -13,23 +13,18 @@ function filterMeetings(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const withMotions = meetings.filter((m) => m.board_motions.length > 0);
-
   if (type === "next") {
-    // Find the next meeting date (>= today)
-    const upcoming = withMotions.filter(
+    const upcoming = meetings.filter(
       (m) => new Date(m.meeting_date + "T00:00:00") >= today
     );
     if (upcoming.length === 0) return [];
-    // Get the earliest upcoming date
     const nextDate = upcoming.reduce((min, m) =>
       m.meeting_date < min ? m.meeting_date : min
     , upcoming[0].meeting_date);
     return upcoming.filter((m) => m.meeting_date === nextDate);
   }
 
-  // Past: all meetings with motions before today
-  return withMotions.filter(
+  return meetings.filter(
     (m) => new Date(m.meeting_date + "T00:00:00") < today
   );
 }
