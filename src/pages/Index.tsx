@@ -3,16 +3,23 @@ import { useSyncAgendas } from "@/hooks/use-sync-agendas";
 import { MotionCard } from "@/components/MotionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, History, Landmark, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import type { MeetingWithMotions } from "@/lib/types";
+import type { MeetingWithMotions, BoardMotion } from "@/lib/types";
 import { format } from "date-fns";
 import { useMemo } from "react";
 
-function filterMeetings(
+export interface MotionCardData {
+  motion: BoardMotion;
+  meeting: MeetingWithMotions;
+}
+
+function getMotionCards(
   meetings: MeetingWithMotions[],
   type: "next" | "past"
-): MeetingWithMotions[] {
+): MotionCardData[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  let filtered: MeetingWithMotions[];
 
   if (type === "next") {
     const upcoming = meetings.filter(
@@ -22,12 +29,17 @@ function filterMeetings(
     const nextDate = upcoming.reduce((min, m) =>
       m.meeting_date < min ? m.meeting_date : min
     , upcoming[0].meeting_date);
-    return upcoming.filter((m) => m.meeting_date === nextDate);
+    filtered = upcoming.filter((m) => m.meeting_date === nextDate);
+  } else {
+    filtered = meetings.filter(
+      (m) => new Date(m.meeting_date + "T00:00:00") < today
+    );
   }
 
-  return meetings.filter(
-    (m) => new Date(m.meeting_date + "T00:00:00") < today
-  );
+  // Only include meetings with motions, flatten to one card per motion
+  return filtered
+    .filter((m) => m.board_motions.length > 0)
+    .flatMap((m) => m.board_motions.map((motion) => ({ motion, meeting: m })));
 }
 
 export default function Index() {
@@ -41,8 +53,8 @@ export default function Index() {
 
   const syncStatus = useSyncAgendas(pendingMeetings);
 
-  const nextMeetings = meetings ? filterMeetings(meetings, "next") : [];
-  const pastMeetings = meetings ? filterMeetings(meetings, "past") : [];
+  const nextCards = meetings ? getMotionCards(meetings, "next") : [];
+  const pastCards = meetings ? getMotionCards(meetings, "past") : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,24 +130,24 @@ export default function Index() {
             </TabsList>
 
             <TabsContent value="next">
-              {nextMeetings.length === 0 ? (
+              {nextCards.length === 0 ? (
                 <EmptyState message="No upcoming meetings with board motion items." />
               ) : (
                 <div className="space-y-2">
-                  {nextMeetings.map((m) => (
-                    <MotionCard key={m.id} meeting={m} />
+                  {nextCards.map((c) => (
+                    <MotionCard key={c.motion.id} motion={c.motion} meeting={c.meeting} />
                   ))}
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value="past">
-              {pastMeetings.length === 0 ? (
+              {pastCards.length === 0 ? (
                 <EmptyState message="No past meetings yet." />
               ) : (
                 <div className="space-y-2">
-                  {pastMeetings.map((m) => (
-                    <MotionCard key={m.id} meeting={m} />
+                  {pastCards.map((c) => (
+                    <MotionCard key={c.motion.id} motion={c.motion} meeting={c.meeting} />
                   ))}
                 </div>
               )}
