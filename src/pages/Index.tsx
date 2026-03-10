@@ -1,7 +1,9 @@
 import { useMeetings } from "@/hooks/use-meetings";
+import { useSyncAgendas } from "@/hooks/use-sync-agendas";
 import { MotionCard } from "@/components/MotionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, History, Landmark } from "lucide-react";
+import { CalendarDays, History, Landmark, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { MeetingWithMotions } from "@/lib/types";
 
 function filterMeetings(
