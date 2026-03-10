@@ -36,6 +36,7 @@ function filterMeetings(
 
 export default function Index() {
   const { data: meetings, isLoading, error } = useMeetings();
+  const { sync, isSyncing } = useSyncAgendas();
 
   const nextMeetings = meetings ? filterMeetings(meetings, "next") : [];
   const pastMeetings = meetings ? filterMeetings(meetings, "past") : [];
