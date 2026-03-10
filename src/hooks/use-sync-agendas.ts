@@ -21,61 +21,16 @@ export function useSyncAgendas() {
   const [lastResults, setLastResults] = useState<SyncResult[] | null>(null);
   const queryClient = useQueryClient();
 
-  const syncMeeting = async (meeting: Meeting): Promise<SyncResult> => {
-    const base = {
-      meeting_id: meeting.id,
-      cluster: meeting.cluster,
-      date: meeting.meeting_date,
-    };
-
-    // Strategy 1: Use Firecrawl proxy (handles anti-bot)
-    try {
-      const { data, error } = await supabase.functions.invoke("proxy-pdf", {
-        body: { url: meeting.agenda_pdf_url },
-      });
-
-      if (!error && data?.success && data?.markdown?.length > 100) {
-        // Got content via Firecrawl — send to AI
-        const motions = await extractMotionsViaAI(
-          data.markdown,
-          meeting.cluster,
-          meeting.meeting_date
-        );
-
-        if (motions !== null) {
-          await saveMotions(meeting.id, motions);
-          return { ...base, success: true, technique: "firecrawl-proxy", motions_found: motions.length };
-        }
-      }
-
-      console.log(`Firecrawl proxy failed for ${meeting.cluster}: ${error?.message || data?.error || 'no content'}`);
-    } catch (e) {
-      console.log(`Firecrawl proxy error for ${meeting.cluster}:`, e);
-    }
-
-    return { ...base, success: false, technique: "all-failed", motions_found: 0, error: "Could not access PDF (bot protection)" };
-  };
-
   const extractMotionsViaAI = async (
     content: string,
     cluster: string,
     date: string
-  ): Promise<Array<{ item_number?: string; title: string; summary?: string; backup_page_anchor?: string }> | null> => {
-    try {
-      const { data, error } = await supabase.functions.invoke("extract-motions", {
-        body: {
-          content,
-          content_type: "text",
-          meeting_info: { cluster, date },
-        },
-      });
-
-      if (error) throw error;
-      return data?.board_motions || [];
-    } catch (e) {
-      console.error("AI extraction failed:", e);
-      return null;
-    }
+  ) => {
+    const { data, error } = await supabase.functions.invoke("extract-motions", {
+      body: { content, content_type: "text", meeting_info: { cluster, date } },
+    });
+    if (error) throw error;
+    return data?.board_motions || [];
   };
 
   const saveMotions = async (
@@ -83,7 +38,6 @@ export function useSyncAgendas() {
     motions: Array<{ item_number?: string; title: string; summary?: string; backup_page_anchor?: string }>
   ) => {
     if (motions.length === 0) return;
-
     await supabase.from("board_motions").delete().eq("meeting_id", meetingId);
     await supabase.from("board_motions").insert(
       motions.map((m) => ({
@@ -96,31 +50,39 @@ export function useSyncAgendas() {
     );
   };
 
-  const handleManualUpload = async (
-    file: File,
-    meeting: Meeting
-  ): Promise<SyncResult> => {
-    const base = {
-      meeting_id: meeting.id,
-      cluster: meeting.cluster,
-      date: meeting.meeting_date,
-    };
+  const syncMeeting = async (meeting: Meeting): Promise<SyncResult> => {
+    const base = { meeting_id: meeting.id, cluster: meeting.cluster, date: meeting.meeting_date };
 
+    try {
+      // Use proxy-pdf edge function (fetches + parses PDF server-side)
+      const { data, error } = await supabase.functions.invoke("proxy-pdf", {
+        body: { url: meeting.agenda_pdf_url },
+      });
+
+      if (error || !data?.success) {
+        return { ...base, success: false, technique: "proxy-pdf", motions_found: 0, error: data?.error || error?.message || "Proxy failed" };
+      }
+
+      // Send extracted text to AI
+      const motions = await extractMotionsViaAI(data.text, meeting.cluster, meeting.meeting_date);
+      await saveMotions(meeting.id, motions);
+      return { ...base, success: true, technique: "proxy-pdf", motions_found: motions.length };
+    } catch (e) {
+      return { ...base, success: false, technique: "proxy-pdf", motions_found: 0, error: e instanceof Error ? e.message : "Unknown error" };
+    }
+  };
+
+  const handleManualUpload = async (file: File, meeting: Meeting): Promise<SyncResult> => {
+    const base = { meeting_id: meeting.id, cluster: meeting.cluster, date: meeting.meeting_date };
     try {
       const buffer = await file.arrayBuffer();
       const text = await extractTextFromPdfBuffer(buffer);
-
       if (text.length < 50) {
-        return { ...base, success: false, technique: "manual-upload", motions_found: 0, error: "PDF has no extractable text (may be scanned)" };
+        return { ...base, success: false, technique: "manual-upload", motions_found: 0, error: "PDF has no extractable text" };
       }
-
       const motions = await extractMotionsViaAI(text, meeting.cluster, meeting.meeting_date);
-      if (motions !== null) {
-        await saveMotions(meeting.id, motions);
-        return { ...base, success: true, technique: "manual-upload", motions_found: motions.length };
-      }
-
-      return { ...base, success: false, technique: "manual-upload", motions_found: 0, error: "AI extraction failed" };
+      await saveMotions(meeting.id, motions);
+      return { ...base, success: true, technique: "manual-upload", motions_found: motions.length };
     } catch (e) {
       return { ...base, success: false, technique: "manual-upload", motions_found: 0, error: e instanceof Error ? e.message : "Upload failed" };
     }
@@ -139,7 +101,6 @@ export function useSyncAgendas() {
       }
 
       setLastResults(results);
-
       const successful = results.filter((r) => r.success);
       const totalMotions = results.reduce((sum, r) => sum + r.motions_found, 0);
 
