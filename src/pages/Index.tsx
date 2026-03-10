@@ -2,10 +2,10 @@ import { useMeetings } from "@/hooks/use-meetings";
 import { useSyncAgendas } from "@/hooks/use-sync-agendas";
 import { MotionCard } from "@/components/MotionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, History, Landmark, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CalendarDays, History, Landmark, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import type { MeetingWithMotions } from "@/lib/types";
 import { format } from "date-fns";
+import { useMemo } from "react";
 
 function filterMeetings(
   meetings: MeetingWithMotions[],
@@ -30,68 +30,63 @@ function filterMeetings(
   );
 }
 
-function getLastUpdated(meetings: MeetingWithMotions[]): string | null {
-  const allDates = meetings.flatMap((m) => [
-    m.updated_at,
-    ...m.board_motions.map((b) => b.updated_at),
-  ]);
-  if (allDates.length === 0) return null;
-  const latest = allDates.reduce((a, b) => (a > b ? a : b));
-  return format(new Date(latest), "MMM d, yyyy 'at' h:mm a");
-}
-
 export default function Index() {
   const { data: meetings, isLoading, error } = useMeetings();
-  const { sync, isSyncing, progress } = useSyncAgendas();
+
+  // Only pass meetings that have no motions yet to the auto-syncer
+  const pendingMeetings = useMemo(
+    () => meetings?.filter((m) => m.board_motions.length === 0),
+    [meetings]
+  );
+
+  const syncStatus = useSyncAgendas(pendingMeetings);
 
   const nextMeetings = meetings ? filterMeetings(meetings, "next") : [];
   const pastMeetings = meetings ? filterMeetings(meetings, "past") : [];
-  const lastUpdated = meetings ? getLastUpdated(meetings) : null;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-primary text-primary-foreground">
         <div className="container max-w-4xl py-6 px-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Landmark className="h-5 w-5 opacity-80" />
-            <p className="text-xs font-medium uppercase tracking-widest opacity-70">
-              LA County CEO
-            </p>
-          </div>
-          <h1 className="font-heading text-xl md:text-2xl font-bold tracking-tight">
-            Board Motion Tracker
-          </h1>
-          <div className="flex items-start justify-between gap-3 mt-1">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs text-primary-foreground/70 max-w-xl">
+              <div className="flex items-center gap-2 mb-1">
+                <Landmark className="h-5 w-5 opacity-80" />
+                <p className="text-xs font-medium uppercase tracking-widest opacity-70">
+                  LA County CEO
+                </p>
+              </div>
+              <h1 className="font-heading text-xl md:text-2xl font-bold tracking-tight">
+                Board Motion Tracker
+              </h1>
+              <p className="text-xs text-primary-foreground/70 max-w-xl mt-0.5">
                 Tracking board motion items from cluster meeting agendas.
               </p>
-              {lastUpdated && (
-                <p className="text-[10px] text-primary-foreground/50 mt-0.5">
-                  Last updated: {lastUpdated}
-                </p>
+            </div>
+
+            {/* Status indicator */}
+            <div className="shrink-0 mt-1">
+              {syncStatus.state === "syncing" && (
+                <div className="flex items-center gap-1 text-[10px] text-primary-foreground/70">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Updating…</span>
+                </div>
+              )}
+              {syncStatus.state === "success" && syncStatus.lastUpdated && (
+                <div className="flex items-center gap-1 text-[10px] text-green-300">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Updated {format(new Date(syncStatus.lastUpdated), "MMM d, h:mm a")}</span>
+                </div>
+              )}
+              {syncStatus.state === "error" && (
+                <div className="flex items-center gap-1 text-[10px] text-red-300">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>{syncStatus.errorMessage || "Sync failed"}</span>
+                </div>
               )}
             </div>
-            {(() => {
-              const missing = meetings?.filter((m) => m.board_motions.length === 0) || [];
-              return (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => sync(missing)}
-                  disabled={isSyncing || missing.length === 0}
-                  className="shrink-0 text-xs h-7 px-2"
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${isSyncing ? "animate-spin" : ""}`} />
-                  {isSyncing ? "Syncing…" : missing.length > 0 ? `Sync ${missing.length}` : "All synced"}
-                </Button>
-              );
-            })()}
           </div>
-          {progress && (
-            <p className="mt-1 text-[10px] text-primary-foreground/60">{progress}</p>
-          )}
         </div>
       </header>
 
