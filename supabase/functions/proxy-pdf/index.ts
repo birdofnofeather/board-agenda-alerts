@@ -41,48 +41,36 @@ async function tryFirecrawl(url: string, apiKey: string): Promise<{ success: boo
 }
 
 async function tryDirectFetch(url: string): Promise<{ success: boolean; text?: string; error?: string }> {
-  console.log('Trying direct PDF fetch for:', url);
+  console.log('Trying direct HEAD check for:', url);
   try {
+    // Use HEAD to verify accessibility without downloading the full PDF
     const resp = await fetch(url, {
+      method: 'HEAD',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'application/pdf,*/*',
       },
       redirect: 'follow',
     });
 
     if (!resp.ok) {
-      const body = await resp.text();
-      console.log(`Direct fetch failed ${resp.status}: ${body.substring(0, 100)}`);
+      console.log(`HEAD check failed ${resp.status}`);
       return { success: false, error: `HTTP ${resp.status}` };
     }
 
     const contentType = resp.headers.get('content-type') || '';
-    console.log(`Direct fetch content-type: ${contentType}, status: ${resp.status}`);
+    const contentLength = resp.headers.get('content-length');
+    console.log(`HEAD ok, type: ${contentType}, size: ${contentLength || 'unknown'}`);
 
-    // If we got HTML back (anti-bot page), it's not a PDF
     if (contentType.includes('text/html')) {
-      const html = await resp.text();
-      if (html.includes('Incapsula') || html.includes('_Incapsula_Resource') || html.length < 500) {
-        console.log('Got Incapsula block page');
-        return { success: false, error: 'Blocked by anti-bot' };
-      }
-      return { success: true, text: html };
+      return { success: false, error: 'Got HTML instead of PDF (likely anti-bot)' };
     }
 
-    // For PDFs: instead of loading into memory (causes OOM on large files),
-    // just confirm it's accessible and return a marker with the URL
-    // The extract-motions function will use Firecrawl or the URL directly
-    const contentLength = resp.headers.get('content-length');
-    console.log(`PDF confirmed accessible, size: ${contentLength || 'unknown'} bytes`);
-    
-    // Consume the body to avoid resource leak
-    await resp.arrayBuffer();
-    
+    // PDF is accessible — return marker so extract-motions can fetch via Firecrawl
     return { success: true, text: `[PDF_URL]:${url}` };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Direct fetch failed';
-    console.log('Direct fetch error:', msg);
+    console.log('HEAD check error:', msg);
     return { success: false, error: msg };
   }
 }
