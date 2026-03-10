@@ -3,6 +3,97 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+async function tryFirecrawl(url: string, apiKey: string): Promise<{ success: boolean; text?: string; cached?: boolean; error?: string; retryable?: boolean }> {
+  console.log('Trying Firecrawl for:', url);
+  const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url,
+      formats: ['markdown'],
+      onlyMainContent: false,
+      timeout: 55000,
+    }),
+  });
+
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    const errMsg = typeof data.error === 'string'
+      ? data.error.substring(0, 200)
+      : JSON.stringify(data.error || '').substring(0, 200);
+    console.log(`Firecrawl error ${resp.status}: ${errMsg}`);
+    return { success: false, error: errMsg, retryable: resp.status === 408 };
+  }
+
+  const markdown = data?.data?.markdown || data?.markdown || '';
+  const cached = data?.data?.metadata?.cacheState === 'hit';
+  console.log(`Firecrawl got ${markdown.length} chars (cached: ${cached})`);
+
+  if (markdown.length < 50) {
+    return { success: false, error: 'No meaningful content from Firecrawl' };
+  }
+
+  return { success: true, text: markdown, cached };
+}
+
+async function tryDirectFetch(url: string): Promise<{ success: boolean; text?: string; error?: string }> {
+  console.log('Trying direct PDF fetch for:', url);
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/pdf,*/*',
+      },
+      redirect: 'follow',
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.log(`Direct fetch failed ${resp.status}: ${body.substring(0, 100)}`);
+      return { success: false, error: `HTTP ${resp.status}` };
+    }
+
+    const contentType = resp.headers.get('content-type') || '';
+    console.log(`Direct fetch content-type: ${contentType}, status: ${resp.status}`);
+
+    // If we got HTML back (anti-bot page), it's not a PDF
+    if (contentType.includes('text/html')) {
+      const html = await resp.text();
+      if (html.includes('Incapsula') || html.includes('_Incapsula_Resource') || html.length < 500) {
+        console.log('Got Incapsula block page');
+        return { success: false, error: 'Blocked by anti-bot' };
+      }
+      // Might be a legitimate HTML version
+      return { success: true, text: html };
+    }
+
+    // Got the actual PDF binary - encode as base64 for AI processing
+    const buffer = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    console.log(`Got PDF binary: ${bytes.length} bytes`);
+
+    if (bytes.length < 100) {
+      return { success: false, error: 'PDF too small' };
+    }
+
+    // Convert to base64 for the extract-motions function to handle
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return { success: true, text: `[PDF_BASE64]:${base64}` };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Direct fetch failed';
+    console.log('Direct fetch error:', msg);
+    return { success: false, error: msg };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -26,51 +117,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Scraping:', url);
-
-    // Firecrawl handles anti-bot (headless browser, proxy rotation, challenge solving)
-    // It also caches results, so retries for previously-scraped PDFs are instant
-    const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown'],
-        onlyMainContent: false,
-        timeout: 55000,
-      }),
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok) {
-      const errMsg = typeof data.error === 'string'
-        ? data.error.substring(0, 200)
-        : JSON.stringify(data.error || '').substring(0, 200);
-      console.log(`Firecrawl error ${resp.status}: ${errMsg}`);
+    // Strategy 1: Firecrawl
+    const fcResult = await tryFirecrawl(url, apiKey);
+    if (fcResult.success) {
       return new Response(
-        JSON.stringify({ success: false, error: errMsg, retryable: resp.status === 408 }),
-        { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, text: fcResult.text, cached: fcResult.cached }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const markdown = data?.data?.markdown || data?.markdown || '';
-    const cached = data?.data?.metadata?.cacheState === 'hit';
-    console.log(`Got ${markdown.length} chars (cached: ${cached})`);
+    console.log('Firecrawl failed, trying direct fetch...');
 
-    if (markdown.length < 50) {
+    // Strategy 2: Direct PDF download (may work for some URLs despite anti-bot)
+    const directResult = await tryDirectFetch(url);
+    if (directResult.success) {
       return new Response(
-        JSON.stringify({ success: false, error: 'No meaningful content extracted' }),
-        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, text: directResult.text, cached: false }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('All strategies failed');
+
+    // Return the Firecrawl error (more informative), mark as retryable
     return new Response(
-      JSON.stringify({ success: true, text: markdown, cached }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: false,
+        error: fcResult.error || directResult.error || 'All scrape methods failed',
+        retryable: fcResult.retryable ?? true,
+      }),
+      { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error:', error);

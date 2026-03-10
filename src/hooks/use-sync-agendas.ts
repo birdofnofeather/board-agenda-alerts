@@ -33,24 +33,33 @@ export function useSyncAgendas(meetings: Meeting[] | undefined) {
       });
 
       if (error || !data?.success) {
+        const errMsg = data?.error || (error instanceof Error ? error.message : String(error || "Scrape failed"));
+        console.warn(`Scrape failed for ${meeting.cluster} ${meeting.meeting_date}:`, errMsg);
         return {
           ...base,
           success: false,
           motions_found: 0,
-          error: data?.error || error?.message || "Scrape failed",
+          error: errMsg,
           retryable: data?.retryable ?? true,
         };
       }
 
+      const content = data.text || "";
+      const isPdfBase64 = content.startsWith("[PDF_BASE64]:");
+      const contentForAI = isPdfBase64 ? content.substring("[PDF_BASE64]:".length) : content;
+
       const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-motions", {
         body: {
-          content: data.text,
-          content_type: "text",
+          content: contentForAI,
+          content_type: isPdfBase64 ? "pdf_base64" : "text",
           meeting_info: { cluster: meeting.cluster, date: meeting.meeting_date },
         },
       });
 
-      if (extractError) throw extractError;
+      if (extractError) {
+        console.warn(`Extract failed for ${meeting.cluster}:`, extractError);
+        return { ...base, success: false, motions_found: 0, error: "AI extraction failed" };
+      }
 
       const motions = extractResult?.board_motions || [];
 
@@ -69,20 +78,14 @@ export function useSyncAgendas(meetings: Meeting[] | undefined) {
 
       return { ...base, success: true, motions_found: motions.length };
     } catch (e) {
+      console.warn(`Sync error for ${meeting.cluster}:`, e);
       return { ...base, success: false, motions_found: 0, error: e instanceof Error ? e.message : "Unknown error" };
     }
   };
 
   useEffect(() => {
     if (!meetings || hasRun.current) return;
-
-    const pending = meetings.filter((m) => {
-      // We need to check if this meeting already has motions — but we only have Meeting[], not MeetingWithMotions[]
-      // The caller should pass only meetings needing sync
-      return true;
-    });
-
-    if (pending.length === 0) {
+    if (meetings.length === 0) {
       setStatus({ state: "success", lastUpdated: new Date().toISOString() });
       return;
     }
@@ -92,34 +95,27 @@ export function useSyncAgendas(meetings: Meeting[] | undefined) {
     const run = async () => {
       setStatus({ state: "syncing", lastUpdated: null });
       const results: SyncResult[] = [];
-      let hadFailures = false;
 
-      for (let i = 0; i < pending.length; i++) {
-        const result = await syncMeeting(pending[i]);
+      for (let i = 0; i < meetings.length; i++) {
+        const result = await syncMeeting(meetings[i]);
         results.push(result);
-
-        if (!result.success) hadFailures = true;
-
-        // Throttle between requests
-        if (i < pending.length - 1) {
+        if (i < meetings.length - 1) {
           await new Promise((r) => setTimeout(r, 3000));
         }
       }
 
-      // Retry failed retryable ones once after a longer delay
+      // Retry failed retryable ones after a longer delay
       const retryable = results.filter((r) => !r.success && r.retryable);
       if (retryable.length > 0) {
-        await new Promise((r) => setTimeout(r, 10000));
+        await new Promise((r) => setTimeout(r, 15000));
         for (let i = 0; i < retryable.length; i++) {
-          const meeting = pending.find((m) => m.id === retryable[i].meeting_id);
+          const meeting = meetings.find((m) => m.id === retryable[i].meeting_id);
           if (!meeting) continue;
           const retryResult = await syncMeeting(meeting);
-          // Update the result in place
           const idx = results.findIndex((r) => r.meeting_id === meeting.id);
           if (idx >= 0) results[idx] = retryResult;
-
           if (i < retryable.length - 1) {
-            await new Promise((r) => setTimeout(r, 3000));
+            await new Promise((r) => setTimeout(r, 5000));
           }
         }
       }
@@ -129,7 +125,7 @@ export function useSyncAgendas(meetings: Meeting[] | undefined) {
 
       if (anyFailed) {
         const failedCount = results.filter((r) => !r.success).length;
-        setStatus({ state: "error", lastUpdated: now, errorMessage: `${failedCount} agenda(s) failed to sync` });
+        setStatus({ state: "error", lastUpdated: now, errorMessage: `${failedCount} agenda(s) failed` });
       } else {
         setStatus({ state: "success", lastUpdated: now });
       }
