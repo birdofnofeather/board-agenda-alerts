@@ -11,6 +11,7 @@ interface SyncResult {
   success: boolean;
   motions_found: number;
   error?: string;
+  retryable?: boolean;
 }
 
 export function useSyncAgendas() {
@@ -22,16 +23,22 @@ export function useSyncAgendas() {
     const base = { meeting_id: meeting.id, cluster: meeting.cluster, date: meeting.meeting_date };
 
     try {
-      // Step 1: Scrape PDF via server-side proxy (handles retries + throttle)
+      // Scrape PDF via Firecrawl (handles anti-bot, caches results)
       const { data, error } = await supabase.functions.invoke("proxy-pdf", {
         body: { url: meeting.agenda_pdf_url },
       });
 
       if (error || !data?.success) {
-        return { ...base, success: false, motions_found: 0, error: data?.error || error?.message || "Scrape failed" };
+        return {
+          ...base,
+          success: false,
+          motions_found: 0,
+          error: data?.error || error?.message || "Scrape failed",
+          retryable: data?.retryable ?? true,
+        };
       }
 
-      // Step 2: Extract motions via AI
+      // Extract motions via AI
       const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-motions", {
         body: {
           content: data.text,
@@ -44,9 +51,9 @@ export function useSyncAgendas() {
 
       const motions = extractResult?.board_motions || [];
 
-      // Step 3: Save to DB
+      // Save to DB (replace existing)
+      await supabase.from("board_motions").delete().eq("meeting_id", meeting.id);
       if (motions.length > 0) {
-        await supabase.from("board_motions").delete().eq("meeting_id", meeting.id);
         await supabase.from("board_motions").insert(
           motions.map((m: { item_number?: string; title: string; summary?: string; backup_page_anchor?: string }) => ({
             meeting_id: meeting.id,
@@ -72,29 +79,32 @@ export function useSyncAgendas() {
       for (let i = 0; i < meetings.length; i++) {
         const meeting = meetings[i];
         setProgress(`Processing ${i + 1}/${meetings.length}: ${meeting.cluster} (${meeting.meeting_date})`);
+
         const result = await syncMeeting(meeting);
         results.push(result);
 
-        // Small delay between meetings to avoid hammering
+        // 3-second throttle between meetings
         if (i < meetings.length - 1) {
-          await new Promise((r) => setTimeout(r, 2000));
+          await new Promise((r) => setTimeout(r, 3000));
         }
       }
 
       const successful = results.filter((r) => r.success);
       const totalMotions = results.reduce((sum, r) => sum + r.motions_found, 0);
       const failed = results.filter((r) => !r.success);
+      const retryable = failed.filter((r) => r.retryable);
 
       if (totalMotions > 0) {
         toast.success(`Found ${totalMotions} Board Motion Item(s) across ${successful.length} agenda(s)`);
       } else if (successful.length > 0) {
-        toast.info("Agendas processed — no Board Motion Items found.");
+        toast.info("Agendas processed — no Board Motion Items found in these agendas.");
       }
 
-      if (failed.length > 0 && failed.length < results.length) {
-        toast.warning(`${failed.length} agenda(s) could not be scraped.`);
-      } else if (failed.length === results.length) {
-        toast.error("All scraping attempts failed.");
+      if (failed.length > 0) {
+        const msg = retryable.length > 0
+          ? `${failed.length} agenda(s) timed out. Firecrawl is caching them — retry in a minute.`
+          : `${failed.length} agenda(s) could not be scraped.`;
+        toast.warning(msg);
       }
 
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
