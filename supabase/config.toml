@@ -1,1 +1,10 @@
 project_id = "uufcbahtpxadjmrmtmlg"
+
+[functions.scrape-pdf]
+verify_jwt = false
+
+[functions.extract-motions]
+verify_jwt = false
+
+[functions.sync-agendas]
+verify_jwt = false

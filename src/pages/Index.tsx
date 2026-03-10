@@ -1,7 +1,9 @@
 import { useMeetings } from "@/hooks/use-meetings";
+import { useSyncAgendas } from "@/hooks/use-sync-agendas";
 import { MotionCard } from "@/components/MotionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, History, Landmark } from "lucide-react";
+import { CalendarDays, History, Landmark, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { MeetingWithMotions } from "@/lib/types";
 
 function filterMeetings(
@@ -34,6 +36,7 @@ function filterMeetings(
 
 export default function Index() {
   const { data: meetings, isLoading, error } = useMeetings();
+  const { sync, isSyncing, progress } = useSyncAgendas();
 
   const nextMeetings = meetings ? filterMeetings(meetings, "next") : [];
   const pastMeetings = meetings ? filterMeetings(meetings, "past") : [];
@@ -52,11 +55,26 @@ export default function Index() {
           <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight">
             Board Motion Tracker
           </h1>
-          <p className="mt-2 text-primary-foreground/70 max-w-xl">
-            Tracking Board Motion Items from cluster meeting agendas. Cards
-            appear only when a meeting agenda contains one or more Board Motion
-            Items.
-          </p>
+          <div className="flex items-start justify-between gap-4 mt-2">
+            <p className="text-primary-foreground/70 max-w-xl">
+              Tracking Board Motion Items from cluster meeting agendas. Cards
+              appear only when a meeting agenda contains one or more Board Motion
+              Items.
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => meetings && sync(meetings)}
+              disabled={isSyncing || !meetings?.length}
+              className="shrink-0"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "Syncing…" : "Sync PDFs"}
+            </Button>
+          </div>
+          {progress && (
+            <p className="mt-2 text-xs text-primary-foreground/60">{progress}</p>
+          )}
         </div>
       </header>
 
