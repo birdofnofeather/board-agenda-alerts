@@ -53,8 +53,8 @@ export default function Index() {
 
   const syncStatus = useSyncAgendas(pendingMeetings);
 
-  const nextMeetings = meetings ? filterMeetings(meetings, "next") : [];
-  const pastMeetings = meetings ? filterMeetings(meetings, "past") : [];
+  const nextCards = meetings ? getMotionCards(meetings, "next") : [];
+  const pastCards = meetings ? getMotionCards(meetings, "past") : [];
 
   return (
     <div className="min-h-screen bg-background">
