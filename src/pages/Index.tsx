@@ -12,12 +12,14 @@ export interface MotionCardData {
   meeting: MeetingWithMotions;
 }
 
-function filterMeetings(
+function getMotionCards(
   meetings: MeetingWithMotions[],
   type: "next" | "past"
-): MeetingWithMotions[] {
+): MotionCardData[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  let filtered: MeetingWithMotions[];
 
   if (type === "next") {
     const upcoming = meetings.filter(
@@ -27,12 +29,17 @@ function filterMeetings(
     const nextDate = upcoming.reduce((min, m) =>
       m.meeting_date < min ? m.meeting_date : min
     , upcoming[0].meeting_date);
-    return upcoming.filter((m) => m.meeting_date === nextDate);
+    filtered = upcoming.filter((m) => m.meeting_date === nextDate);
+  } else {
+    filtered = meetings.filter(
+      (m) => new Date(m.meeting_date + "T00:00:00") < today
+    );
   }
 
-  return meetings.filter(
-    (m) => new Date(m.meeting_date + "T00:00:00") < today
-  );
+  // Only include meetings with motions, flatten to one card per motion
+  return filtered
+    .filter((m) => m.board_motions.length > 0)
+    .flatMap((m) => m.board_motions.map((motion) => ({ motion, meeting: m })));
 }
 
 export default function Index() {
