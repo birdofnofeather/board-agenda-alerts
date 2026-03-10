@@ -46,12 +46,28 @@ export function useSyncAgendas(meetings: Meeting[] | undefined) {
 
       const content = data.text || "";
       const isPdfBase64 = content.startsWith("[PDF_BASE64]:");
-      const contentForAI = isPdfBase64 ? content.substring("[PDF_BASE64]:".length) : content;
+      const isPdfUrl = content.startsWith("[PDF_URL]:");
+      
+      let contentForAI: string;
+      let contentType: string;
+      
+      if (isPdfUrl) {
+        // PDF was accessible but too large to base64 in edge function
+        // Pass URL to extract-motions which will use Firecrawl or fetch directly
+        contentForAI = content.substring("[PDF_URL]:".length);
+        contentType = "pdf_url";
+      } else if (isPdfBase64) {
+        contentForAI = content.substring("[PDF_BASE64]:".length);
+        contentType = "pdf_base64";
+      } else {
+        contentForAI = content;
+        contentType = "text";
+      }
 
       const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-motions", {
         body: {
           content: contentForAI,
-          content_type: isPdfBase64 ? "pdf_base64" : "text",
+          content_type: contentType,
           meeting_info: { cluster: meeting.cluster, date: meeting.meeting_date },
         },
       });

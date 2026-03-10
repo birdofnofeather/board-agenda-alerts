@@ -60,26 +60,48 @@ Deno.serve(async (req) => {
     }
 
     // Build the user message based on content type
-    let userMessage: string;
-    const messages: Array<{ role: string; content: unknown }> = [];
-
-    if (content_type === 'pdf_base64') {
-      // For PDF base64, use vision model with the PDF as an image
-      // Actually, Gemini can process PDFs via base64 in the content
-      userMessage = `Here is the content of an LA County CEO cluster meeting agenda (${meeting_info?.cluster || 'unknown cluster'}, date: ${meeting_info?.date || 'unknown'}).
-
-Please analyze it and extract all Board Motion Items.
-
-The content is provided as text extracted from the PDF:
-${content.substring(0, 50000)}`;
-    } else {
-      userMessage = `Here is the content of an LA County CEO cluster meeting agenda (${meeting_info?.cluster || 'unknown cluster'}, date: ${meeting_info?.date || 'unknown'}).
-
-Please analyze it and extract all Board Motion Items.
-
-${content.substring(0, 50000)}`;
+    let textContent = content;
+    
+    if (content_type === 'pdf_url') {
+      // PDF was too large to base64 — fetch via Firecrawl from extract-motions
+      console.log('Fetching PDF content via Firecrawl from extract-motions for:', content);
+      const fcKey = Deno.env.get('FIRECRAWL_API_KEY');
+      if (fcKey) {
+        try {
+          const fcResp = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${fcKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              url: content,
+              formats: ['markdown'],
+              onlyMainContent: false,
+              timeout: 90000,
+            }),
+          });
+          const fcData = await fcResp.json();
+          const markdown = fcData?.data?.markdown || fcData?.markdown || '';
+          if (markdown.length > 50) {
+            textContent = markdown;
+            console.log(`Got ${markdown.length} chars from Firecrawl in extract-motions`);
+          } else {
+            console.log('Firecrawl returned insufficient content in extract-motions');
+          }
+        } catch (e) {
+          console.log('Firecrawl fetch failed in extract-motions:', e);
+        }
+      }
     }
 
+    const userMessage = `Here is the content of an LA County CEO cluster meeting agenda (${meeting_info?.cluster || 'unknown cluster'}, date: ${meeting_info?.date || 'unknown'}).
+
+Please analyze it and extract all Board Motion Items.
+
+${textContent.substring(0, 50000)}`;
+
+    const messages: Array<{ role: string; content: unknown }> = [];
     messages.push(
       { role: 'system', content: EXTRACTION_PROMPT },
       { role: 'user', content: userMessage }

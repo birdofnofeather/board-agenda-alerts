@@ -67,26 +67,19 @@ async function tryDirectFetch(url: string): Promise<{ success: boolean; text?: s
         console.log('Got Incapsula block page');
         return { success: false, error: 'Blocked by anti-bot' };
       }
-      // Might be a legitimate HTML version
       return { success: true, text: html };
     }
 
-    // Got the actual PDF binary - encode as base64 for AI processing
-    const buffer = await resp.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    console.log(`Got PDF binary: ${bytes.length} bytes`);
-
-    if (bytes.length < 100) {
-      return { success: false, error: 'PDF too small' };
-    }
-
-    // Convert to base64 for the extract-motions function to handle
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    return { success: true, text: `[PDF_BASE64]:${base64}` };
+    // For PDFs: instead of loading into memory (causes OOM on large files),
+    // just confirm it's accessible and return a marker with the URL
+    // The extract-motions function will use Firecrawl or the URL directly
+    const contentLength = resp.headers.get('content-length');
+    console.log(`PDF confirmed accessible, size: ${contentLength || 'unknown'} bytes`);
+    
+    // Consume the body to avoid resource leak
+    await resp.arrayBuffer();
+    
+    return { success: true, text: `[PDF_URL]:${url}` };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Direct fetch failed';
     console.log('Direct fetch error:', msg);
