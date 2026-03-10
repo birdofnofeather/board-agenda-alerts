@@ -130,24 +130,24 @@ export default function Index() {
             </TabsList>
 
             <TabsContent value="next">
-              {nextMeetings.length === 0 ? (
+              {nextCards.length === 0 ? (
                 <EmptyState message="No upcoming meetings with board motion items." />
               ) : (
                 <div className="space-y-2">
-                  {nextMeetings.map((m) => (
-                    <MotionCard key={m.id} meeting={m} />
+                  {nextCards.map((c) => (
+                    <MotionCard key={c.motion.id} motion={c.motion} meeting={c.meeting} />
                   ))}
                 </div>
               )}
             </TabsContent>
 
             <TabsContent value="past">
-              {pastMeetings.length === 0 ? (
+              {pastCards.length === 0 ? (
                 <EmptyState message="No past meetings yet." />
               ) : (
                 <div className="space-y-2">
-                  {pastMeetings.map((m) => (
-                    <MotionCard key={m.id} meeting={m} />
+                  {pastCards.map((c) => (
+                    <MotionCard key={c.motion.id} motion={c.motion} meeting={c.meeting} />
                   ))}
                 </div>
               )}

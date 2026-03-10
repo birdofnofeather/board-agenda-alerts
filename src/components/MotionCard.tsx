@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, FileText, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
-import type { MeetingWithMotions } from "@/lib/types";
+import type { MeetingWithMotions, BoardMotion } from "@/lib/types";
 import { CLUSTER_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -20,21 +20,20 @@ const clusterBadgeBg: Record<string, string> = {
 };
 
 interface MotionCardProps {
+  motion: BoardMotion;
   meeting: MeetingWithMotions;
 }
 
 function toSentenceCase(str: string): string {
   if (!str) return str;
-  // If it's all-caps or mostly caps, convert to sentence case
   if (str === str.toUpperCase() || (str.replace(/[^A-Z]/g, '').length / str.replace(/\s/g, '').length) > 0.7) {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   }
   return str;
 }
 
-export function MotionCard({ meeting }: MotionCardProps) {
+export function MotionCard({ motion, meeting }: MotionCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const hasMotions = meeting.board_motions.length > 0;
   const meetingDate = new Date(meeting.meeting_date + "T00:00:00");
 
   return (
@@ -59,6 +58,11 @@ export function MotionCard({ meeting }: MotionCardProps) {
             >
               {CLUSTER_LABELS[meeting.cluster]}
             </span>
+            {motion.item_number && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wide">
+                Item {motion.item_number}
+              </span>
+            )}
             {meeting.is_cancelled && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive uppercase tracking-wide">
                 Cancelled
@@ -66,15 +70,9 @@ export function MotionCard({ meeting }: MotionCardProps) {
             )}
           </div>
 
-          {hasMotions ? (
-            <h3 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
-              {meeting.board_motions.map((m) => toSentenceCase(m.title)).join("; ")}
-            </h3>
-          ) : (
-            <h3 className="text-sm font-medium text-muted-foreground leading-snug">
-              No board motion items
-            </h3>
-          )}
+          <h3 className="text-sm font-medium text-foreground leading-snug">
+            {toSentenceCase(motion.title)}
+          </h3>
 
           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
             <span>
@@ -105,39 +103,21 @@ export function MotionCard({ meeting }: MotionCardProps) {
 
       {expanded && (
         <div className="px-3 pb-3 border-t border-border/50 pt-2.5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-          {hasMotions ? (
-            meeting.board_motions.map((motion) => (
-              <div key={motion.id} className="space-y-1">
-                {motion.item_number && (
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Item {motion.item_number}
-                  </p>
-                )}
-                <h4 className="text-xs font-semibold text-foreground">
-                  {toSentenceCase(motion.title)}
-                </h4>
-                {motion.summary && (
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {motion.summary}
-                  </p>
-                )}
-                {motion.backup_page_anchor && (
-                  <a
-                    href={`${meeting.agenda_pdf_url}#page=${motion.backup_page_anchor}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
-                  >
-                    <FileText className="h-3 w-3" />
-                    Backup materials (p. {motion.backup_page_anchor})
-                  </a>
-                )}
-              </div>
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground text-center py-1">
-              No board motion items in this agenda.
+          {motion.summary && (
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {motion.summary}
             </p>
+          )}
+          {motion.backup_page_anchor && (
+            <a
+              href={`${meeting.agenda_pdf_url}#page=${motion.backup_page_anchor}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+            >
+              <FileText className="h-3 w-3" />
+              Backup materials (p. {motion.backup_page_anchor})
+            </a>
           )}
 
           <div className="pt-1.5 border-t border-border/50">
