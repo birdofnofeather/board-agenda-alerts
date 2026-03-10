@@ -75,8 +75,6 @@ export default function Index() {
           {progress && (
             <p className="mt-2 text-xs text-primary-foreground/60">{progress}</p>
           )}
-            </Button>
-          </div>
         </div>
       </header>
 
