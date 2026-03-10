@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.proxy-pdf]
 verify_jwt = false
+
+[functions.check-new-agendas]
+verify_jwt = false
