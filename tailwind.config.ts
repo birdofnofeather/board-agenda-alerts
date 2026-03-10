@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
+        heading: ['"Playfair Display"', 'Georgia', 'serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,6 +60,12 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        cluster: {
+          operations: "hsl(var(--cluster-operations))",
+          community: "hsl(var(--cluster-community))",
+          family: "hsl(var(--cluster-family))",
+          health: "hsl(var(--cluster-health))",
         },
       },
       borderRadius: {

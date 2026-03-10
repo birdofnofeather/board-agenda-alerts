@@ -14,7 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      board_motions: {
+        Row: {
+          backup_page_anchor: string | null
+          created_at: string
+          id: string
+          item_number: string | null
+          meeting_id: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          backup_page_anchor?: string | null
+          created_at?: string
+          id?: string
+          item_number?: string | null
+          meeting_id: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          backup_page_anchor?: string | null
+          created_at?: string
+          id?: string
+          item_number?: string | null
+          meeting_id?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_motions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          agenda_pdf_url: string
+          cluster: Database["public"]["Enums"]["cluster_type"]
+          created_at: string
+          id: string
+          is_cancelled: boolean
+          meeting_date: string
+          meeting_time: string | null
+          teams_link: string | null
+          updated_at: string
+        }
+        Insert: {
+          agenda_pdf_url: string
+          cluster: Database["public"]["Enums"]["cluster_type"]
+          created_at?: string
+          id?: string
+          is_cancelled?: boolean
+          meeting_date: string
+          meeting_time?: string | null
+          teams_link?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agenda_pdf_url?: string
+          cluster?: Database["public"]["Enums"]["cluster_type"]
+          created_at?: string
+          id?: string
+          is_cancelled?: boolean
+          meeting_date?: string
+          meeting_time?: string | null
+          teams_link?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +99,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      cluster_type:
+        | "operations"
+        | "community_services"
+        | "family_social_services"
+        | "health_mental_health"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +230,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      cluster_type: [
+        "operations",
+        "community_services",
+        "family_social_services",
+        "health_mental_health",
+      ],
+    },
   },
 } as const
