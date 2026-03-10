@@ -56,16 +56,21 @@ export default function Index() {
               appear only when a meeting agenda contains one or more Board Motion
               Items.
             </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => meetings && sync(meetings)}
-              disabled={isSyncing || !meetings?.length}
-              className="shrink-0"
-            >
-              <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-              {isSyncing ? "Syncing…" : "Sync PDFs"}
-            </Button>
+            {(() => {
+              const missing = meetings?.filter((m) => m.board_motions.length === 0) || [];
+              return (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => sync(missing)}
+                  disabled={isSyncing || missing.length === 0}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+                  {isSyncing ? "Syncing…" : missing.length > 0 ? `Sync ${missing.length} Pending` : "All Synced"}
+                </Button>
+              );
+            })()}
           </div>
           {progress && (
             <p className="mt-2 text-xs text-primary-foreground/60">{progress}</p>
