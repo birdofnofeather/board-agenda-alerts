@@ -26,10 +26,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Scraping via Firecrawl:', url);
+    console.log('Scraping:', url);
 
     // Firecrawl handles anti-bot (headless browser, proxy rotation, challenge solving)
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    // It also caches results, so retries for previously-scraped PDFs are instant
+    const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -43,36 +44,38 @@ Deno.serve(async (req) => {
       }),
     });
 
-    const data = await response.json();
+    const data = await resp.json();
 
-    if (!response.ok) {
-      const errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error || data);
-      console.error('Firecrawl error:', response.status, errMsg.substring(0, 200));
+    if (!resp.ok) {
+      const errMsg = typeof data.error === 'string'
+        ? data.error.substring(0, 200)
+        : JSON.stringify(data.error || '').substring(0, 200);
+      console.log(`Firecrawl error ${resp.status}: ${errMsg}`);
       return new Response(
-        JSON.stringify({ success: false, error: `Firecrawl: ${errMsg.substring(0, 300)}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: errMsg, retryable: resp.status === 408 }),
+        { status: resp.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const markdown = data?.data?.markdown || data?.markdown || '';
-    console.log(`Got ${markdown.length} chars of markdown`);
+    const cached = data?.data?.metadata?.cacheState === 'hit';
+    console.log(`Got ${markdown.length} chars (cached: ${cached})`);
 
     if (markdown.length < 50) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl returned no meaningful content' }),
+        JSON.stringify({ success: false, error: 'No meaningful content extracted' }),
         { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
-      JSON.stringify({ success: true, text: markdown, metadata: data?.data?.metadata }),
+      JSON.stringify({ success: true, text: markdown, cached }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ success: false, error: msg }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
