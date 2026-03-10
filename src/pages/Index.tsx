@@ -64,12 +64,17 @@ export default function Index() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => sync()}
-              disabled={isSyncing}
+              onClick={() => meetings && sync(meetings)}
+              disabled={isSyncing || !meetings?.length}
               className="shrink-0"
             >
               <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
               {isSyncing ? "Syncing…" : "Sync PDFs"}
+            </Button>
+          </div>
+          {progress && (
+            <p className="mt-2 text-xs text-primary-foreground/60">{progress}</p>
+          )}
             </Button>
           </div>
         </div>
