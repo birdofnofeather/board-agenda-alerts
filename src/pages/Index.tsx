@@ -3,9 +3,14 @@ import { useSyncAgendas } from "@/hooks/use-sync-agendas";
 import { MotionCard } from "@/components/MotionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, History, Landmark, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import type { MeetingWithMotions } from "@/lib/types";
+import type { MeetingWithMotions, BoardMotion } from "@/lib/types";
 import { format } from "date-fns";
 import { useMemo } from "react";
+
+export interface MotionCardData {
+  motion: BoardMotion;
+  meeting: MeetingWithMotions;
+}
 
 function filterMeetings(
   meetings: MeetingWithMotions[],
