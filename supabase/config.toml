@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.sync-agendas]
 verify_jwt = false
+
+[functions.proxy-pdf]
+verify_jwt = false
