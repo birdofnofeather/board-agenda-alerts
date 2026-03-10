@@ -101,6 +101,7 @@ Please analyze it and extract all Board Motion Items.
 
 ${textContent.substring(0, 50000)}`;
 
+    const messages: Array<{ role: string; content: unknown }> = [];
     messages.push(
       { role: 'system', content: EXTRACTION_PROMPT },
       { role: 'user', content: userMessage }
