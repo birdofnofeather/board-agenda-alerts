@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, FileText, Video, ExternalLink } from "lucide-react";
+import { ChevronDown, FileText, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import type { MeetingWithMotions } from "@/lib/types";
 import { CLUSTER_LABELS } from "@/lib/types";
@@ -23,6 +23,15 @@ interface MotionCardProps {
   meeting: MeetingWithMotions;
 }
 
+function toSentenceCase(str: string): string {
+  if (!str) return str;
+  // If it's all-caps or mostly caps, convert to sentence case
+  if (str === str.toUpperCase() || (str.replace(/[^A-Z]/g, '').length / str.replace(/\s/g, '').length) > 0.7) {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+  return str;
+}
+
 export function MotionCard({ meeting }: MotionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const hasMotions = meeting.board_motions.length > 0;
@@ -31,90 +40,84 @@ export function MotionCard({ meeting }: MotionCardProps) {
   return (
     <div
       className={cn(
-        "bg-card rounded-lg border border-border shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md",
-        "border-l-4",
+        "bg-card rounded-md border border-border shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md",
+        "border-l-[3px]",
         clusterBorderColors[meeting.cluster]
       )}
     >
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full text-left p-5 flex items-start justify-between gap-4"
+        className="w-full text-left px-3 py-2.5 flex items-start justify-between gap-2"
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
             <span
               className={cn(
-                "text-xs font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wide",
+                "text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wide",
                 clusterBadgeBg[meeting.cluster]
               )}
             >
               {CLUSTER_LABELS[meeting.cluster]}
             </span>
             {meeting.is_cancelled && (
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive uppercase tracking-wide">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive uppercase tracking-wide">
                 Cancelled
-              </span>
-            )}
-            {!hasMotions && (
-              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                Pending sync
               </span>
             )}
           </div>
 
           {hasMotions ? (
-            <h3 className="font-heading text-lg font-semibold text-foreground leading-tight">
-              {meeting.board_motions.map((m) => m.title).join("; ")}
+            <h3 className="text-sm font-medium text-foreground leading-snug line-clamp-2">
+              {meeting.board_motions.map((m) => toSentenceCase(m.title)).join("; ")}
             </h3>
           ) : (
-            <h3 className="font-heading text-lg font-semibold text-muted-foreground leading-tight">
-              {CLUSTER_LABELS[meeting.cluster]} Meeting
+            <h3 className="text-sm font-medium text-muted-foreground leading-snug">
+              No board motion items
             </h3>
           )}
 
-          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-            {meeting.teams_link ? (
+          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+            <span>
+              {format(meetingDate, "MMM d, yyyy")}
+              {meeting.meeting_time && ` · ${meeting.meeting_time}`}
+            </span>
+            {meeting.teams_link && (
               <a
                 href={meeting.teams_link}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 hover:text-primary transition-colors"
+                className="text-primary hover:underline"
               >
-                <Video className="h-3.5 w-3.5" />
-                {format(meetingDate, "MMMM d, yyyy")}{" "}
-                {meeting.meeting_time && `at ${meeting.meeting_time}`}
+                Join meeting
               </a>
-            ) : (
-              <span className="flex items-center gap-1">
-                {format(meetingDate, "MMMM d, yyyy")}{" "}
-                {meeting.meeting_time && `at ${meeting.meeting_time}`}
-              </span>
             )}
           </div>
         </div>
 
         <ChevronDown
           className={cn(
-            "h-5 w-5 text-muted-foreground shrink-0 transition-transform duration-200 mt-1",
+            "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200 mt-0.5",
             expanded && "rotate-180"
           )}
         />
       </button>
 
       {expanded && (
-        <div className="px-5 pb-5 border-t border-border/50 pt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="px-3 pb-3 border-t border-border/50 pt-2.5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
           {hasMotions ? (
             meeting.board_motions.map((motion) => (
-              <div key={motion.id} className="space-y-2">
+              <div key={motion.id} className="space-y-1">
                 {motion.item_number && (
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Item {motion.item_number}
                   </p>
                 )}
-                <h4 className="font-semibold text-foreground">{motion.title}</h4>
+                <h4 className="text-xs font-semibold text-foreground">
+                  {toSentenceCase(motion.title)}
+                </h4>
                 {motion.summary && (
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
                     {motion.summary}
                   </p>
                 )}
@@ -123,29 +126,29 @@ export function MotionCard({ meeting }: MotionCardProps) {
                     href={`${meeting.agenda_pdf_url}#page=${motion.backup_page_anchor}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
                   >
-                    <FileText className="h-3.5 w-3.5" />
-                    View Backup Materials (Page {motion.backup_page_anchor})
+                    <FileText className="h-3 w-3" />
+                    Backup materials (p. {motion.backup_page_anchor})
                   </a>
                 )}
               </div>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-2">
-              No Board Motion Items found in this agenda.
+            <p className="text-xs text-muted-foreground text-center py-1">
+              No board motion items in this agenda.
             </p>
           )}
 
-          <div className="pt-2 border-t border-border/50">
+          <div className="pt-1.5 border-t border-border/50">
             <a
               href={meeting.agenda_pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Full Agenda PDF
+              <ExternalLink className="h-3 w-3" />
+              Full agenda PDF
             </a>
           </div>
         </div>
