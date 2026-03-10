@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import type { Meeting } from "@/lib/types";
+
+interface SyncStatus {
+  state: "idle" | "syncing" | "success" | "error";
+  lastUpdated: string | null;
+  errorMessage?: string;
+}
 
 interface SyncResult {
   meeting_id: string;
@@ -14,16 +19,15 @@ interface SyncResult {
   retryable?: boolean;
 }
 
-export function useSyncAgendas() {
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [progress, setProgress] = useState("");
+export function useSyncAgendas(meetings: Meeting[] | undefined) {
+  const [status, setStatus] = useState<SyncStatus>({ state: "idle", lastUpdated: null });
   const queryClient = useQueryClient();
+  const hasRun = useRef(false);
 
   const syncMeeting = async (meeting: Meeting): Promise<SyncResult> => {
     const base = { meeting_id: meeting.id, cluster: meeting.cluster, date: meeting.meeting_date };
 
     try {
-      // Scrape PDF via Firecrawl (handles anti-bot, caches results)
       const { data, error } = await supabase.functions.invoke("proxy-pdf", {
         body: { url: meeting.agenda_pdf_url },
       });
@@ -38,7 +42,6 @@ export function useSyncAgendas() {
         };
       }
 
-      // Extract motions via AI
       const { data: extractResult, error: extractError } = await supabase.functions.invoke("extract-motions", {
         body: {
           content: data.text,
@@ -51,7 +54,6 @@ export function useSyncAgendas() {
 
       const motions = extractResult?.board_motions || [];
 
-      // Save to DB (replace existing)
       await supabase.from("board_motions").delete().eq("meeting_id", meeting.id);
       if (motions.length > 0) {
         await supabase.from("board_motions").insert(
@@ -71,49 +73,72 @@ export function useSyncAgendas() {
     }
   };
 
-  const sync = async (meetings: Meeting[]) => {
-    setIsSyncing(true);
-    const results: SyncResult[] = [];
+  useEffect(() => {
+    if (!meetings || hasRun.current) return;
 
-    try {
-      for (let i = 0; i < meetings.length; i++) {
-        const meeting = meetings[i];
-        setProgress(`Processing ${i + 1}/${meetings.length}: ${meeting.cluster} (${meeting.meeting_date})`);
+    const pending = meetings.filter((m) => {
+      // We need to check if this meeting already has motions — but we only have Meeting[], not MeetingWithMotions[]
+      // The caller should pass only meetings needing sync
+      return true;
+    });
 
-        const result = await syncMeeting(meeting);
+    if (pending.length === 0) {
+      setStatus({ state: "success", lastUpdated: new Date().toISOString() });
+      return;
+    }
+
+    hasRun.current = true;
+
+    const run = async () => {
+      setStatus({ state: "syncing", lastUpdated: null });
+      const results: SyncResult[] = [];
+      let hadFailures = false;
+
+      for (let i = 0; i < pending.length; i++) {
+        const result = await syncMeeting(pending[i]);
         results.push(result);
 
-        // 3-second throttle between meetings
-        if (i < meetings.length - 1) {
+        if (!result.success) hadFailures = true;
+
+        // Throttle between requests
+        if (i < pending.length - 1) {
           await new Promise((r) => setTimeout(r, 3000));
         }
       }
 
-      const successful = results.filter((r) => r.success);
-      const totalMotions = results.reduce((sum, r) => sum + r.motions_found, 0);
-      const failed = results.filter((r) => !r.success);
-      const retryable = failed.filter((r) => r.retryable);
+      // Retry failed retryable ones once after a longer delay
+      const retryable = results.filter((r) => !r.success && r.retryable);
+      if (retryable.length > 0) {
+        await new Promise((r) => setTimeout(r, 10000));
+        for (let i = 0; i < retryable.length; i++) {
+          const meeting = pending.find((m) => m.id === retryable[i].meeting_id);
+          if (!meeting) continue;
+          const retryResult = await syncMeeting(meeting);
+          // Update the result in place
+          const idx = results.findIndex((r) => r.meeting_id === meeting.id);
+          if (idx >= 0) results[idx] = retryResult;
 
-      if (totalMotions > 0) {
-        toast.success(`Found ${totalMotions} Board Motion Item(s) across ${successful.length} agenda(s)`);
-      } else if (successful.length > 0) {
-        toast.info("Agendas processed — no Board Motion Items found in these agendas.");
+          if (i < retryable.length - 1) {
+            await new Promise((r) => setTimeout(r, 3000));
+          }
+        }
       }
 
-      if (failed.length > 0) {
-        const msg = retryable.length > 0
-          ? `${failed.length} agenda(s) timed out. Firecrawl is caching them — retry in a minute.`
-          : `${failed.length} agenda(s) could not be scraped.`;
-        toast.warning(msg);
+      const anyFailed = results.some((r) => !r.success);
+      const now = new Date().toISOString();
+
+      if (anyFailed) {
+        const failedCount = results.filter((r) => !r.success).length;
+        setStatus({ state: "error", lastUpdated: now, errorMessage: `${failedCount} agenda(s) failed to sync` });
+      } else {
+        setStatus({ state: "success", lastUpdated: now });
       }
 
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
-      return results;
-    } finally {
-      setIsSyncing(false);
-      setProgress("");
-    }
-  };
+    };
 
-  return { sync, isSyncing, progress };
+    run();
+  }, [meetings]);
+
+  return status;
 }
