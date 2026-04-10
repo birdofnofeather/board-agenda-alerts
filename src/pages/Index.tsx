@@ -57,7 +57,17 @@ export default function Index() {
   const pastCards = meetings ? getMotionCards(meetings, "past") : [];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* PAUSED watermark */}
+      <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+        <span
+          className="text-[8rem] md:text-[12rem] font-extrabold uppercase tracking-widest text-destructive/20 select-none"
+          style={{ transform: "rotate(-35deg)" }}
+        >
+          PAUSED
+        </span>
+      </div>
+
       {/* Header */}
       <header className="bg-primary text-primary-foreground">
         <div className="container max-w-4xl py-6 px-4">
