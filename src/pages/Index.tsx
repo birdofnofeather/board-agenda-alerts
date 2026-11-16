@@ -35,7 +35,6 @@ function meetingDay(m: MeetingWithMotions): Date {
 function toCards(meetings: MeetingWithMotions[]): MotionCardData[] {
   return meetings.flatMap((m) =>
     [...m.board_motions]
-      .sort((x, y) => (x.item_number || "").localeCompare(y.item_number || ""))
       .map((motion) => ({ motion, meeting: m }))
   );
 }
@@ -60,6 +59,7 @@ export default function Index() {
     const text = [
       c.motion.title,
       c.motion.summary,
+      c.motion.backup_text,
       c.motion.item_number,
       CLUSTER_LABELS[c.meeting.cluster],
       format(meetingDay(c.meeting), "MMMM d, yyyy"),
@@ -135,7 +135,7 @@ export default function Index() {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search motions"
+                  placeholder="Search titles, summaries, and motion text"
                   aria-label="Search motions"
                   className="h-9 pl-8 text-xs"
                 />

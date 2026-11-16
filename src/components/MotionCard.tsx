@@ -27,7 +27,11 @@ interface MotionCardProps {
 function toSentenceCase(str: string): string {
   if (!str) return str;
   if (str === str.toUpperCase() || (str.replace(/[^A-Z]/g, '').length / str.replace(/\s/g, '').length) > 0.7) {
-    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    const lower = str.toLowerCase();
+    // Keep the district label, for example "SD3", and start the subject with a capital letter.
+    return (lower.charAt(0).toUpperCase() + lower.slice(1))
+      .replace(/\bsd[\s-]?([1-5])\b/gi, "SD$1")
+      .replace(/^((?:SD\d[\s,&and]*)+\s*[-–:]\s*)([a-z])/, (_, label, first) => label + first.toUpperCase());
   }
   return str;
 }
@@ -61,6 +65,11 @@ export function MotionCard({ motion, meeting }: MotionCardProps) {
             {motion.item_number && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wide">
                 Item {motion.item_number}
+              </span>
+            )}
+            {meeting.revisions > 0 && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase tracking-wide">
+                Agenda revised
               </span>
             )}
             {meeting.is_cancelled && (

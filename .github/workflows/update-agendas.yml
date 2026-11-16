@@ -1,0 +1,92 @@
+name: Update agendas and publish the site
+
+# This job does three things:
+# 1. It looks for new or changed cluster meeting agendas.
+# 2. It saves the results in public/data/agendas.json.
+# 3. It builds the website and publishes it on GitHub Pages.
+#
+# The job runs one time each day. It also runs after each change to the code.
+# You can start it by hand from the "Actions" tab on GitHub.
+on:
+  schedule:
+    - cron: "23 15 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update-agendas
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the agenda reader
+        run: pip install -r scripts/requirements.txt
+
+      - name: Look for new agendas
+        id: agendas
+        continue-on-error: true
+        run: python scripts/update_agendas.py
+
+      - name: Save the data file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/agendas.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update agenda data"
+            git pull --rebase --autostash
+            git push
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build the website
+        run: |
+          npm ci
+          npm run build
+
+      - name: Check that GitHub Pages is on
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null)" = "workflow" ]; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GitHub Pages is not on. The website was not published. See the README file."
+          fi
+
+      - name: Prepare the website files
+        if: steps.pages.outputs.on == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Publish the website
+        if: steps.pages.outputs.on == 'true'
+        uses: actions/deploy-pages@v4
+
+      - name: Report agenda problems
+        if: steps.agendas.outcome == 'failure'
+        run: |
+          echo "::error::One or more agendas had a problem. Open the step 'Look for new agendas' to see the cause."
+          exit 1

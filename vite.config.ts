@@ -5,6 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Relative addresses let the site work in a sub-folder, for example on GitHub Pages.
+  base: "./",
   server: {
     host: "::",
     port: 8080,
