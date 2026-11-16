@@ -5,36 +5,18 @@ const corsHeaders = {
 
 const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
-const EXTRACTION_PROMPT = `You are an expert at reading LA County CEO cluster meeting agendas. Your job is to identify all "Board Motion Items" (also sometimes labeled "Board Letter", "Board Motion", or items that reference a motion going to the Board of Supervisors).
+const SUMMARY_PROMPT = `You write very brief summaries of Los Angeles County Board of Supervisors motions for a public tracker.
 
-For each Board Motion Item found, extract:
-1. item_number: The agenda item number (e.g., "3A", "2B", "4A")
-2. title: The full title of the motion/item
-3. summary: A 2-3 sentence summary explaining what the motion does, what it requests, and key details from any backup materials
-4. backup_page_anchor: The page number where the backup/supporting materials begin (if identifiable)
+You receive the title of one motion and the text of the motion.
+Write a summary of one or two short sentences, with a maximum of 60 words.
+State what the motion directs or approves. Include the most important amount of money, deadline, or responsible department when the text gives one.
+Use plain language. Use only facts from the text. Do not start with "This motion".
 
-IMPORTANT:
-- Only extract items that are specifically "Board Motion Items" or "Board Letters" — not regular agenda items
-- If no Board Motion Items exist in this agenda, return an empty array
-- Be precise with page numbers for backup materials
+Return valid JSON in this exact format:
+{ "summary": "..." }
 
-Return your response as valid JSON in this exact format:
-{
-  "board_motions": [
-    {
-      "item_number": "3A",
-      "title": "Title of the motion",
-      "summary": "Summary of what the motion does...",
-      "backup_page_anchor": "5"
-    }
-  ]
-}
-
-If the content appears to be garbled, a challenge page, or not an actual agenda, return:
-{
-  "board_motions": [],
-  "error": "Content does not appear to be a valid meeting agenda"
-}`;
+If the text is not readable or is not a motion, return:
+{ "summary": null }`;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,7 +24,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { content, content_type, meeting_info } = await req.json();
+    const { content, title, meeting_info } = await req.json();
 
     if (!content) {
       return new Response(
@@ -59,55 +41,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build the user message based on content type
-    let textContent = content;
-    
-    if (content_type === 'pdf_url') {
-      // PDF was too large to base64 — fetch via Firecrawl from extract-motions
-      console.log('Fetching PDF content via Firecrawl from extract-motions for:', content);
-      const fcKey = Deno.env.get('FIRECRAWL_API_KEY');
-      if (fcKey) {
-        try {
-          const fcResp = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${fcKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              url: content,
-              formats: ['markdown'],
-              onlyMainContent: false,
-              timeout: 90000,
-            }),
-          });
-          const fcData = await fcResp.json();
-          const markdown = fcData?.data?.markdown || fcData?.markdown || '';
-          if (markdown.length > 50) {
-            textContent = markdown;
-            console.log(`Got ${markdown.length} chars from Firecrawl in extract-motions`);
-          } else {
-            console.log('Firecrawl returned insufficient content in extract-motions');
-          }
-        } catch (e) {
-          console.log('Firecrawl fetch failed in extract-motions:', e);
-        }
-      }
-    }
+    const userMessage = `Cluster: ${meeting_info?.cluster || 'unknown'}. Meeting date: ${meeting_info?.date || 'unknown'}.
+Motion title: ${title || 'unknown'}
 
-    const userMessage = `Here is the content of an LA County CEO cluster meeting agenda (${meeting_info?.cluster || 'unknown cluster'}, date: ${meeting_info?.date || 'unknown'}).
+Motion text:
+${String(content).substring(0, 30000)}`;
 
-Please analyze it and extract all Board Motion Items.
+    const messages = [
+      { role: 'system', content: SUMMARY_PROMPT },
+      { role: 'user', content: userMessage },
+    ];
 
-${textContent.substring(0, 50000)}`;
-
-    const messages: Array<{ role: string; content: unknown }> = [];
-    messages.push(
-      { role: 'system', content: EXTRACTION_PROMPT },
-      { role: 'user', content: userMessage }
-    );
-
-    console.log('Calling AI to extract motions...');
+    console.log('Calling AI to summarize one motion...');
 
     const aiResp = await fetch(AI_GATEWAY_URL, {
       method: 'POST',
@@ -152,10 +97,8 @@ ${textContent.substring(0, 50000)}`;
       }
     }
 
-    console.log(`Extracted ${parsed.board_motions?.length || 0} motions`);
-
     return new Response(
-      JSON.stringify({ success: true, ...parsed }),
+      JSON.stringify({ success: true, summary: parsed.summary ?? parsed.board_motions?.[0]?.summary ?? null }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
