@@ -10,8 +10,13 @@
   "is_cancelled": false,
   "motion_section_found": true,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:44+00:00",
-  "processed_at": "2026-11-16T18:50:44+00:00",
+  "processed_at": "2026-11-16T19:46:30+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -40,8 +45,15 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 1,
+   "ai_titles": [
+    "SD3: Integrating the Department of Public Health - Substance Abuse Prevention and Control (DPH-SAPC) within the Homeless Services System"
+   ]
+  },
   "first_seen": "2026-11-16T18:50:35+00:00",
-  "processed_at": "2026-11-16T18:50:35+00:00",
+  "processed_at": "2026-11-16T19:46:24+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -70,8 +82,15 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 1,
+   "ai_titles": [
+    "SD3: Transitional Housing Program (TRP) Round 8, Housing Navigation and Maintenance Program (HNMP) Round 5, and THP-Plus Housing Supplement Program Round 6."
+   ]
+  },
   "first_seen": "2026-11-16T18:50:51+00:00",
-  "processed_at": "2026-11-16T18:50:51+00:00",
+  "processed_at": "2026-11-16T19:46:39+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -100,8 +119,15 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 1,
+   "ai_titles": [
+    "Protecting Communities Vulnerable to Fire Risk and Climate Hazards by Implementing the Recommendations of the Blue-Ribbon Commission on Climate Action and Fire Safe Recover"
+   ]
+  },
   "first_seen": "2026-11-16T18:50:44+00:00",
-  "processed_at": "2026-11-16T18:50:44+00:00",
+  "processed_at": "2026-11-16T19:46:27+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -116,8 +142,13 @@
   "is_cancelled": true,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:27+00:00",
-  "processed_at": "2026-11-16T18:50:27+00:00",
+  "processed_at": "2026-11-16T19:46:21+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -132,8 +163,13 @@
   "is_cancelled": true,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:27+00:00",
-  "processed_at": "2026-11-16T18:50:27+00:00",
+  "processed_at": "2026-11-16T19:46:17+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -148,8 +184,13 @@
   "is_cancelled": true,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:26+00:00",
-  "processed_at": "2026-11-16T18:50:26+00:00",
+  "processed_at": "2026-11-16T19:46:15+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -164,8 +205,13 @@
   "is_cancelled": true,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:27+00:00",
-  "processed_at": "2026-11-16T18:50:27+00:00",
+  "processed_at": "2026-11-16T19:46:19+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -180,8 +226,13 @@
   "is_cancelled": false,
   "motion_section_found": true,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:26+00:00",
-  "processed_at": "2026-11-16T18:50:26+00:00",
+  "processed_at": "2026-11-16T19:46:13+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -257,8 +308,16 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 2,
+   "ai_titles": [
+    "Protecting Residents and Communities from Unlawful Practices at Non-Clinical Recovery Residences",
+    "Supporting Fresh Food Access at the Martin Luther King, Jr. Medical Campus"
+   ]
+  },
   "first_seen": "2026-11-16T18:50:11+00:00",
-  "processed_at": "2026-11-16T18:50:11+00:00",
+  "processed_at": "2026-11-16T19:46:03+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -329,8 +388,16 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 2,
+   "ai_titles": [
+    "SD2: Protecting Residents Facing H.R. 1 Work Requirements.",
+    "SD3: Exploring Housing Strategies and Expanded Supports for Transition-Age Youth (TAY)"
+   ]
+  },
   "first_seen": "2026-11-16T18:50:24+00:00",
-  "processed_at": "2026-11-16T18:50:24+00:00",
+  "processed_at": "2026-11-16T19:46:11+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -345,8 +412,13 @@
   "is_cancelled": false,
   "motion_section_found": true,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:50:11+00:00",
-  "processed_at": "2026-11-16T18:50:11+00:00",
+  "processed_at": "2026-11-16T19:46:05+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -430,8 +502,16 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 2,
+   "ai_titles": [
+    "SD3 - LA COUNTY 2028 GAMES CULTURAL PROGRAM FRAMEWORK",
+    "SD5 - SOLE SOURCE WITH AUSTIN SCOTT FOR THE ALTADENA UTILITY BOX ARTWORK PROJECT"
+   ]
+  },
   "first_seen": "2026-11-16T18:49:58+00:00",
-  "processed_at": "2026-11-16T18:49:58+00:00",
+  "processed_at": "2026-11-16T19:45:58+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -446,8 +526,13 @@
   "is_cancelled": false,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:49:12+00:00",
-  "processed_at": "2026-11-16T18:49:12+00:00",
+  "processed_at": "2026-11-16T19:45:50+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -556,8 +641,17 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 3,
+   "ai_titles": [
+    "SD4: Advancing Accessibility and Community Living: Aging and Disabilities Unified Vision for Disability Services in Los Angeles County",
+    "SD2: Strengthening Increasing Access to Mobility for Youth and Families and Realizing Cost Savings Through Partnership with LA County Metropolitan Transportation Authority.",
+    "SD3 & SD1: Strengthening County Gender-Based Efforts, Services and Supports for Survivors of Intimate Partner Violence"
+   ]
+  },
   "first_seen": "2026-11-16T18:49:33+00:00",
-  "processed_at": "2026-11-16T18:49:33+00:00",
+  "processed_at": "2026-11-16T19:45:52+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -603,8 +697,15 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 1,
+   "ai_titles": [
+    "4th & Eagle Street Remediation Project"
+   ]
+  },
   "first_seen": "2026-11-16T18:49:41+00:00",
-  "processed_at": "2026-11-16T18:49:41+00:00",
+  "processed_at": "2026-11-16T19:45:56+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -658,8 +759,15 @@
     }
    }
   ],
+  "check": {
+   "status": "agree",
+   "ai_count": 1,
+   "ai_titles": [
+    "STRENGTHENING ACCOUNTABILITY IN COUNTY COMMUNICATIONS SPENDING AND SUPPORT FOR LOCAL, ETHNIC, AND COMMUNITY-SERVING MEDIA"
+   ]
+  },
   "first_seen": "2026-11-16T18:49:12+00:00",
-  "processed_at": "2026-11-16T18:49:12+00:00",
+  "processed_at": "2026-11-16T19:45:49+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -674,8 +782,13 @@
   "is_cancelled": false,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:49:04+00:00",
-  "processed_at": "2026-11-16T18:49:04+00:00",
+  "processed_at": "2026-11-16T19:45:44+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -690,8 +803,13 @@
   "is_cancelled": false,
   "motion_section_found": false,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:49:03+00:00",
-  "processed_at": "2026-11-16T18:49:03+00:00",
+  "processed_at": "2026-11-16T19:45:41+00:00",
   "parser_version": 1,
   "history": []
  },
@@ -706,8 +824,13 @@
   "is_cancelled": false,
   "motion_section_found": true,
   "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
   "first_seen": "2026-11-16T18:49:05+00:00",
-  "processed_at": "2026-11-16T18:49:05+00:00",
+  "processed_at": "2026-11-16T19:45:46+00:00",
   "parser_version": 1,
   "history": []
  },
