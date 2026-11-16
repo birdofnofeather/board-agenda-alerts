@@ -1,10 +1,10 @@
-import { useMeetings } from "@/hooks/use-meetings";
+import { useMeetings, useTrackerStatus } from "@/hooks/use-meetings";
 import { MotionCard } from "@/components/MotionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { CalendarDays, History, Landmark, BarChart3, Search, X } from "lucide-react";
-import type { MeetingWithMotions, BoardMotion, ClusterType } from "@/lib/types";
-import { CLUSTER_LABELS, CLUSTER_COLORS } from "@/lib/types";
+import type { MeetingWithMotions, BoardMotion, BoardStatus, ClusterType } from "@/lib/types";
+import { BOARD_STATUS_LABELS, CLUSTER_LABELS, CLUSTER_COLORS } from "@/lib/types";
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
 
@@ -20,6 +20,12 @@ function getDistricts(title: string): string[] {
   const start = title.split(/[“":•]/)[0].slice(0, 40);
   const found = [...start.matchAll(/SD[\s-]?([1-5])/gi)].map((m) => m[1]);
   return [...new Set(found)];
+}
+
+/** True if the Board agenda shows a revision, a different title, or a different date. */
+function isChanged(motion: BoardMotion): boolean {
+  const b = motion.board;
+  return Boolean(b.revised_after_cluster || b.title_changed || b.date_changed);
 }
 
 function startOfToday(): Date {
@@ -44,6 +50,8 @@ export default function Index() {
   const [query, setQuery] = useState("");
   const [cluster, setCluster] = useState<ClusterType | "">("");
   const [district, setDistrict] = useState("");
+  const [boardFilter, setBoardFilter] = useState<BoardStatus | "changed" | "">("");
+  const { data: trackerStatus } = useTrackerStatus();
 
   const today = startOfToday();
   const upcoming = (meetings || []).filter((m) => meetingDay(m) >= today);
@@ -54,12 +62,16 @@ export default function Index() {
   const matches = (c: MotionCardData) => {
     if (cluster && c.meeting.cluster !== cluster) return false;
     if (district && !getDistricts(c.motion.title).includes(district)) return false;
+    if (boardFilter === "changed" && !isChanged(c.motion)) return false;
+    if (boardFilter && boardFilter !== "changed" && c.motion.board.status !== boardFilter) return false;
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length === 0) return true;
     const text = [
       c.motion.title,
       c.motion.summary,
       c.motion.backup_text,
+      c.motion.board.board_title,
+      c.motion.board.file_number,
       c.motion.item_number,
       CLUSTER_LABELS[c.meeting.cluster],
       format(meetingDay(c.meeting), "MMMM d, yyyy"),
@@ -73,12 +85,9 @@ export default function Index() {
   const shownCards = allCards.filter(matches);
   const nextCards = shownCards.filter((c) => c.meeting.meeting_date === nextDate);
   const pastCards = shownCards.filter((c) => meetingDay(c.meeting) < today);
-  const filtersOn = Boolean(query || cluster || district);
+  const filtersOn = Boolean(query || cluster || district || boardFilter);
 
-  const lastUpdate = (meetings || []).reduce<string | null>(
-    (max, m) => (!max || m.updated_at > max ? m.updated_at : max),
-    null
-  );
+  const lastUpdate = trackerStatus?.last_run || null;
 
   const selectClass =
     "h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring";
@@ -105,7 +114,7 @@ export default function Index() {
             </div>
             {lastUpdate && (
               <p className="shrink-0 mt-1 text-[10px] text-primary-foreground/70">
-                Last update: {format(new Date(lastUpdate), "MMM d, yyyy")}
+                Last check: {format(new Date(lastUpdate), "MMM d, yyyy")}
               </p>
             )}
           </div>
@@ -166,12 +175,25 @@ export default function Index() {
                   </option>
                 ))}
               </select>
+              <select
+                value={boardFilter}
+                onChange={(e) => setBoardFilter(e.target.value as BoardStatus | "changed" | "")}
+                aria-label="Filter by Board agenda status"
+                className={selectClass}
+              >
+                <option value="">All Board results</option>
+                <option value="on_board_agenda">{BOARD_STATUS_LABELS.on_board_agenda}</option>
+                <option value="changed">Changed after cluster</option>
+                <option value="waiting">{BOARD_STATUS_LABELS.waiting}</option>
+                <option value="not_found">{BOARD_STATUS_LABELS.not_found}</option>
+              </select>
               {filtersOn && (
                 <button
                   onClick={() => {
                     setQuery("");
                     setCluster("");
                     setDistrict("");
+                    setBoardFilter("");
                   }}
                   className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground"
                 >
@@ -289,6 +311,17 @@ function Analysis({
     color: "bg-primary",
     count: cards.filter((x) => getDistricts(x.motion.title).includes(d)).length,
   }));
+  const compared = cards.filter((c) => c.motion.board.status === "on_board_agenda" || c.motion.board.status === "not_found");
+  const onBoard = compared.filter((c) => c.motion.board.status === "on_board_agenda");
+  const boardRows = [
+    { label: "On a Board agenda", color: "bg-emerald-600", count: onBoard.length },
+    { label: "Not found", color: "bg-destructive", count: compared.length - onBoard.length },
+    { label: "Revised after cluster", color: "bg-amber-500", count: onBoard.filter((c) => c.motion.board.revised_after_cluster).length },
+    { label: "Different title", color: "bg-amber-500", count: onBoard.filter((c) => c.motion.board.title_changed).length },
+    { label: "Different Board date", color: "bg-amber-500", count: onBoard.filter((c) => c.motion.board.date_changed).length },
+  ];
+  const waiting = cards.filter((c) => c.motion.board.status === "waiting").length;
+  const noData = cards.filter((c) => c.motion.board.status === "no_board_data").length;
   const months = [...new Set(cards.map((c) => c.meeting.meeting_date.slice(0, 7)))].sort();
   const byMonth = months.map((m) => ({
     label: format(new Date(m + "-01T00:00:00"), "MMM yyyy"),
@@ -307,6 +340,11 @@ function Analysis({
         <Stat label="Meetings held" value={held.length} />
         <Stat label="Meetings cancelled" value={scope.length - held.length} />
       </div>
+      <BarGroup
+        title={`Cluster motions on Board agendas (${compared.length} motions compared)`}
+        rows={boardRows}
+        note={`${waiting} motions are too recent to compare. ${noData} motions are from a period without Board agenda data.`}
+      />
       <BarGroup title="Motions by cluster" rows={byCluster} />
       <BarGroup title="Motions by supervisorial district" rows={byDistrict} note="A motion with two authors counts for each district." />
       <BarGroup title="Motions by month" rows={byMonth} />

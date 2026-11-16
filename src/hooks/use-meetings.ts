@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ClusterType, MeetingWithMotions } from "@/lib/types";
+import type { BoardResult, ClusterType, MeetingWithMotions } from "@/lib/types";
 
 /** One agenda in public/data/agendas.json. The daily job on GitHub writes this file. */
 interface ArchiveRecord {
@@ -18,6 +18,7 @@ interface ArchiveRecord {
     summary: string | null;
     backup_page: number | null;
     backup_text?: string;
+    board?: BoardResult;
   }[];
 }
 
@@ -48,9 +49,27 @@ export function useMeetings() {
             summary: m.summary,
             backup_page_anchor: m.backup_page ? String(m.backup_page) : null,
             backup_text: m.backup_text || "",
+            board: m.board || { status: "no_board_data" },
           })),
         }))
         .sort((a, b) => b.meeting_date.localeCompare(a.meeting_date) || a.cluster.localeCompare(b.cluster));
+    },
+  });
+}
+
+export interface TrackerStatus {
+  last_run: string;
+  ai_available: boolean;
+  problems: string[];
+}
+
+/** The record of the last run of the daily job. */
+export function useTrackerStatus() {
+  return useQuery({
+    queryKey: ["status"],
+    queryFn: async (): Promise<TrackerStatus | null> => {
+      const response = await fetch(`${import.meta.env.BASE_URL}data/status.json`, { cache: "no-cache" });
+      return response.ok ? response.json() : null;
     },
   });
 }

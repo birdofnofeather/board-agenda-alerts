@@ -221,5 +221,6 @@ def parse_agenda(path):
         "teams_link": teams_link,
         "section_found": section_found,
         "says_cancelled": bool(re.search(r"\bCANCEL+ED\b", front_text, re.I)),
+        "front_text": "\n".join(t for _, _, t in lines),
         "motions": motions,
     }

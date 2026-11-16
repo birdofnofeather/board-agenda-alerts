@@ -4,7 +4,35 @@ export type ClusterType =
   | "family_social_services"
   | "health_mental_health";
 
+export type BoardStatus = "on_board_agenda" | "waiting" | "not_found" | "no_board_data";
+
+/** The result of the comparison of one cluster motion with the Board of Supervisors agendas. */
+export interface BoardResult {
+  status: BoardStatus;
+  planned_date?: string | null;
+  board_date?: string;
+  agenda_kind?: "regular" | "supplemental";
+  agenda_url?: string;
+  item_number?: string;
+  board_title?: string;
+  authors?: string;
+  file_number?: string | null;
+  attachments?: { name: string; url: string }[];
+  date_changed?: boolean;
+  title_changed?: boolean;
+  revised_after_cluster?: boolean;
+  other_dates?: string[];
+}
+
+export const BOARD_STATUS_LABELS: Record<BoardStatus, string> = {
+  on_board_agenda: "On a Board agenda",
+  waiting: "Not on a Board agenda yet",
+  not_found: "Not found on a Board agenda",
+  no_board_data: "No Board agenda data",
+};
+
 export interface BoardMotion {
+  board: BoardResult;
   id: string;
   item_number: string | null;
   title: string;

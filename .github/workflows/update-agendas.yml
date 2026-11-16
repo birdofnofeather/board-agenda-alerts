@@ -1,9 +1,14 @@
 name: Update agendas and publish the site
 
-# This job does three things:
+# This job does four things:
 # 1. It looks for new or changed cluster meeting agendas.
-# 2. It saves the results in public/data/agendas.json.
-# 3. It builds the website and publishes it on GitHub Pages.
+# 2. It compares the cluster motions with the Board of Supervisors agendas.
+# 3. It saves the results in the folder public/data.
+# 4. It builds the website and publishes it on GitHub Pages.
+#
+# The job needs one secret, ANTHROPIC_API_KEY, for the AI summaries and the AI check.
+# A problem with an agenda does not make the job fail. The job records the problem
+# in a GitHub issue named "Tracker status" and sends a notice one time each week at most.
 #
 # The job runs one time each day. It also runs after each change to the code.
 # You can start it by hand from the "Actions" tab on GitHub.
@@ -16,6 +21,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pages: write
   id-token: write
 
@@ -38,19 +44,46 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Look for new agendas
-        id: agendas
-        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PROBLEMS_FILE: ${{ runner.temp }}/problems.md
         run: python scripts/update_agendas.py
 
-      - name: Save the data file
+      - name: Save the data files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/agendas.json
+          git add public/data
           if ! git diff --cached --quiet; then
             git commit -m "Update agenda data"
             git pull --rebase --autostash
             git push
+          fi
+
+      - name: Record problems, with one notice each week at most
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PROBLEMS_FILE: ${{ runner.temp }}/problems.md
+        run: |
+          problems="$(cat "$PROBLEMS_FILE" 2>/dev/null || true)"
+          number="$(gh issue list --state open --search 'Tracker status in:title' --json number --jq '.[0].number // empty')"
+          today="$(date -u +%Y-%m-%d)"
+          if [ -z "$problems" ]; then
+            if [ -n "$number" ]; then
+              gh issue edit "$number" --body "No problems on $today. You can close this issue."
+            fi
+            exit 0
+          fi
+          body="$(printf 'The daily job found these problems on %s:\n\n%s\n\nThe job tries again each day. This text always shows the newest result.' "$today" "$problems")"
+          if [ -z "$number" ]; then
+            gh issue create --title "Tracker status" --body "$body"
+            exit 0
+          fi
+          gh issue edit "$number" --body "$body"
+          last="$(gh issue view "$number" --json createdAt,comments --jq '[.createdAt, .comments[].createdAt] | max')"
+          if [ "$(date -u -d "$last" +%s)" -lt "$(date -u -d '7 days ago' +%s)" ]; then
+            gh issue comment "$number" --body "The tracker continues to have problems. See the text at the top of this issue."
           fi
 
       - uses: actions/setup-node@v4
@@ -84,9 +117,3 @@ jobs:
       - name: Publish the website
         if: steps.pages.outputs.on == 'true'
         uses: actions/deploy-pages@v4
-
-      - name: Report agenda problems
-        if: steps.agendas.outcome == 'failure'
-        run: |
-          echo "::error::One or more agendas had a problem. Open the step 'Look for new agendas' to see the cause."
-          exit 1
