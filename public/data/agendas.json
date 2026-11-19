@@ -1,4 +1,25 @@
 {
+ "operations|2026-11-25": {
+  "cluster": "operations",
+  "date": "2026-11-25",
+  "url": "https://file.lacounty.gov/SDSInter/clusteragendas/1221287_11.25.26CANCELEDAgenda-operations.pdf",
+  "label": "Meeting Cancelled",
+  "pages": 1,
+  "meeting_time": "2:00 p.m. – 4:00 p.m.",
+  "teams_link": null,
+  "is_cancelled": true,
+  "motion_section_found": false,
+  "motions": [],
+  "check": {
+   "status": "agree",
+   "ai_count": 0,
+   "ai_titles": []
+  },
+  "first_seen": "2026-11-19T22:42:05+00:00",
+  "processed_at": "2026-11-19T22:42:05+00:00",
+  "parser_version": 1,
+  "history": []
+ },
  "operations|2026-11-18": {
   "cluster": "operations",
   "date": "2026-11-18",
