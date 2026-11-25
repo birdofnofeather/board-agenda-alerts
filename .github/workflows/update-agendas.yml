@@ -114,6 +114,28 @@ jobs:
         with:
           path: dist
 
+      # GitHub Pages sometimes fails for a short time ("Deployment failed, try
+      # again later"). The job then waits and tries again, two times at most.
       - name: Publish the website
+        id: publish1
         if: steps.pages.outputs.on == 'true'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before the second try
+        if: steps.pages.outputs.on == 'true' && steps.publish1.outcome == 'failure'
+        run: sleep 60
+
+      - name: Publish the website, second try
+        id: publish2
+        if: steps.pages.outputs.on == 'true' && steps.publish1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before the third try
+        if: steps.pages.outputs.on == 'true' && steps.publish2.outcome == 'failure'
+        run: sleep 180
+
+      - name: Publish the website, third try
+        if: steps.pages.outputs.on == 'true' && steps.publish2.outcome == 'failure'
         uses: actions/deploy-pages@v4
